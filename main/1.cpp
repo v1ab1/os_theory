@@ -1,38 +1,44 @@
 #include <iostream>
-#include <vector>
 #include <thread>
+#include <vector>
 #include <mutex>
 
-// Функция, которую будут выполнять потоки
-void threadFunction(std::mutex& mtx, int& value) {
-    // Захватываем мьютекс перед работой с общей переменной
-    std::lock_guard<std::mutex> lock(mtx);
-    
-    // Изменяем аргумент (увеличиваем значение на единицу)
-    value += 1;
-    
-    // Автоматический разблокировка мьютекса при выходе из области видимости lock_guard
+// Функция потока, принимающая ссылку на аргумент и изменяющая его
+void threadFunction(int &arg, std::mutex &mu) {
+    std::lock_guard<std::mutex> guard(mu);
+    // Изменяем аргумент
+    arg += 5;
+    // Распечатываем информацию о потоке и измененном аргументе
+    std::cout << "ID потока: " << std::this_thread::get_id() << ", измененное значение: " << arg << std::endl;
 }
 
 int main() {
-    const int NUM_THREADS = 5; // Кол-во потоков
-    int sharedValue = 0; // Общий аргумент
-    std::mutex mtx; // Мьютекс для синхронизации доступа к sharedValue
-    std::vector<std::thread> threads; // Вектор для хранения потоков
+    // Количество потоков
+    const int numThreads = 5;
+    // Исходный аргумент
+    int argument = 0;
 
-    // Создаем и запускаем потоки
-    for (int i = 0; i < NUM_THREADS; ++i) {
-        // В каждый поток передаем ссылку на мьютекс и ссылку на sharedValue
-        threads.emplace_back(threadFunction, std::ref(mtx), std::ref(sharedValue));
+    // Мьютекс для синхронизации доступа к аргументу
+    std::mutex mu;
+
+    // Вектор для хранения потоков
+    std::vector<std::thread> threads;
+
+    // Запускаем несколько потоков
+    for (int i = 0; i < numThreads; ++i) {
+        // Создаем и запускаем поток, передаем аргумент по ссылке
+        threads.emplace_back(threadFunction, std::ref(argument), std::ref(mu));
     }
 
-    // Ждем завершения всех потоков
-    for (auto& thread : threads) {
-        thread.join();
+    // Дожидаемся завершения всех потоков
+    for (std::thread &th : threads) {
+        if (th.joinable()) {
+            th.join();
+        }
     }
 
-    // Печатаем результат
-    std::cout << "Resulting value: " << sharedValue << std::endl;
-    
+    // Печатаем конечное значение аргумента после работы всех потоков
+    std::cout << "Финальное значение после остановки всех потоков: " << argument << std::endl;
+
     return 0;
 }
